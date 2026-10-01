@@ -48,7 +48,6 @@ static unsigned char** gameBitSaveData_;
 static void (*warpToMap_)(int,int), (*setMapAct_)(int,int);
 static int (*loadMapAndParent_)(int), (*mapGetDirIdx_)(int);
 static void (*mapLoadByCoords_)(float,float,float,int);
-static void (*loadMapForCameraPos_)(float,float,float), (*doPendingMapLoads_)(void);
 typedef struct SaveGameCharacterPositionCompat {
  float x,y,z;
  int8_t angle;
@@ -60,8 +59,7 @@ static void* (*SaveGame_getCurCharPos_)(void);
 static int *gameLoopPendingMapId_, *gameLoopPendingMapDataFileId_;
 static unsigned char *gameLoopMapLoadPending_, *gameLoopFullMapUnloadPending_, *gameLoopReloadRequested_;
 
-static int (*lockLevel_)(int,int), (*unlockLevel_)(int,int,int); static void (*mainSetBits_)(int,int);
-static int (*mainGetBit_)(int);
+static int (*lockLevel_)(int,int); static void (*mainSetBits_)(int,int);
 static void (*SaveGame_gplaySetObjGroupStatus_)(int,int,int), (*SaveGame_mapUpdateObjGroups_)(int);
 static unsigned short (*SaveGame_getMapObjGroupBit_)(int);
 static void (*clearLoadedFileFlags_blocks1_)(void);
@@ -80,37 +78,6 @@ static void logi(const char* s);
 
 
 
-typedef struct MapCellEntryCompat {
- int16_t mapId;
- int16_t adjacentMapId1;
- int16_t adjacentMapId2;
- int16_t blockId;
- int8_t cellIndex;
- int8_t romListIndex;
- int16_t unkA;
-} MapCellEntryCompat;
-
-typedef struct MapCellSeen {
- int gx,gz,layer,map,a1,a2,block,rom;
-} MapCellSeen;
-static MapCellSeen mapCellSeen[256];
-static int mapCellSeenCount;
-
-static int mapcell_seen(int gx,int gz,int layer,const MapCellEntryCompat* e){
- int i;
- for(i=0;i<mapCellSeenCount;i++){
-  MapCellSeen *q=&mapCellSeen[i];
-  if(q->gx==gx&&q->gz==gz&&q->layer==layer&&q->map==e->mapId&&
-     q->a1==e->adjacentMapId1&&q->a2==e->adjacentMapId2&&
-     q->block==e->blockId&&q->rom==e->romListIndex)return 1;
- }
- if(mapCellSeenCount<256){
-  MapCellSeen *q=&mapCellSeen[mapCellSeenCount++];
-  q->gx=gx;q->gz=gz;q->layer=layer;q->map=e->mapId;q->a1=e->adjacentMapId1;
-  q->a2=e->adjacentMapId2;q->block=e->blockId;q->rom=e->romListIndex;
- }
- return 0;
-}
 static void logi(const char* s);
 static void logw(const char* s);
 
@@ -122,15 +89,10 @@ static void logw(const char* s);
 #define GAMEBIT_CF_OBJGROUPS2 0x4A3
 #define GAMEBIT_DR_OBJGROUPS 0x5DB
 #define GAMEBIT_NW_OBJGROUPS 0x4AE
-#define GAMEBIT_NW_MAMMOTH_TUMBLEWEED_COUNT 0x48B
 #define GAMEBIT_NW_GEYSER_COMPLETE 0x398
 #define GAMEBIT_NW_ARTIFACT_STARTED 0x19D
 #define GAMEBIT_NW_ARTIFACT_COMPLETE 0x19F
 #define GAMEBIT_NW_RESCUE_SEQUENCE_ACTIVE 0xECD
-#define GAMEBIT_NW_MAMMOTH_BUSH1 0xF22
-#define GAMEBIT_NW_MAMMOTH_BUSH2 0xF23
-#define GAMEBIT_NW_MAMMOTH_BUSH3 0xF24
-#define GAMEBIT_NW_MAMMOTH_BUSH4 0xF25
 #define GAMEBIT_OFP_PUZZLE_SHOW 0x5E4
 #define GAMEBIT_OFP_ZAPPED 0x5E5
 #define GAMEBIT_OFP_PUZZLE_PAD 0x635
@@ -254,11 +216,11 @@ static int queue_loaded_named(DevConsole* c,const char* name,int act){size_t i;c
   /* Stable SnowHorn Act 1 entry state required by its native controllers. */
   setMapAct_(0x0A,1);
   if(mainSetBits_){
-   mainSetBits_(0x19D,0);
-   mainSetBits_(0x19F,0);
-   mainSetBits_(0xECD,0);
-   mainSetBits_(0x398,0);
-   mainSetBits_(0x4AE,(int)0x7FFFFFFEu);
+   mainSetBits_(GAMEBIT_NW_ARTIFACT_STARTED,0);
+   mainSetBits_(GAMEBIT_NW_ARTIFACT_COMPLETE,0);
+   mainSetBits_(GAMEBIT_NW_RESCUE_SEQUENCE_ACTIVE,0);
+   mainSetBits_(GAMEBIT_NW_GEYSER_COMPLETE,0);
+   mainSetBits_(GAMEBIT_NW_OBJGROUPS,(int)0x7FFFFFFEu);
   }
   if(SaveGame_mapUpdateObjGroups_)SaveGame_mapUpdateObjGroups_(0x0A);
 
@@ -434,8 +396,6 @@ FH_MOD_EXPORT int fh_mod_initialize(FhMod* mod,const FhModHost* host) {
     loadMapAndParent_=(int(*)(int))host->symbolAddress(mod,"loadMapAndParent");
     mapGetDirIdx_=(int(*)(int))host->symbolAddress(mod,"mapGetDirIdx");
     mapLoadByCoords_=(void(*)(float,float,float,int))host->symbolAddress(mod,"mapLoadByCoords");
-    loadMapForCameraPos_=(void(*)(float,float,float))host->symbolAddress(mod,"loadMapForCameraPos");
-    doPendingMapLoads_=(void(*)(void))host->symbolAddress(mod,"doPendingMapLoads");
     SaveGame_getCurCharPos_=(void*(*)(void))host->symbolAddress(mod,"SaveGame_getCurCharPos");
     gameLoopPendingMapId_=(int*)host->symbolAddress(mod,"gGameLoopPendingMapId");
     gameLoopPendingMapDataFileId_=(int*)host->symbolAddress(mod,"gGameLoopPendingMapDataFileId");
@@ -443,9 +403,7 @@ FH_MOD_EXPORT int fh_mod_initialize(FhMod* mod,const FhModHost* host) {
     gameLoopFullMapUnloadPending_=(unsigned char*)host->symbolAddress(mod,"gGameLoopFullMapUnloadPending");
     gameLoopReloadRequested_=(unsigned char*)host->symbolAddress(mod,"gGameLoopReloadRequested");
     lockLevel_=(int(*)(int,int))host->symbolAddress(mod,"lockLevel");
-    unlockLevel_=(int(*)(int,int,int))host->symbolAddress(mod,"unlockLevel");
     mainSetBits_=(void(*)(int,int))host->symbolAddress(mod,"mainSetBits");
-    mainGetBit_=(int(*)(int))host->symbolAddress(mod,"mainGetBit");
     SaveGame_gplaySetObjGroupStatus_=(void(*)(int,int,int))host->symbolAddress(mod,"SaveGame_gplaySetObjGroupStatus");
     SaveGame_mapUpdateObjGroups_=(void(*)(int))host->symbolAddress(mod,"SaveGame_mapUpdateObjGroups");
     SaveGame_getMapObjGroupBit_=(unsigned short(*)(int))host->symbolAddress(mod,"SaveGame_getMapObjGroupBit");
@@ -461,7 +419,6 @@ FH_MOD_EXPORT int fh_mod_initialize(FhMod* mod,const FhModHost* host) {
     arrivedWarpIndex_=(int16_t*)host->symbolAddress(mod,"gArrivedWarpIndex");
     warpArrivalTimer_=(unsigned char*)host->symbolAddress(mod,"gWarpArrivalTimer");
 
-    /* map streaming diagnostics retired from normal build */
     console_set_command_handler(native_command);
     pad_target=host->symbolAddress(mod,"padUpdate"); pad_hook_target=pad_target;
 
