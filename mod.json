@@ -1,0 +1,9 @@
+{
+  "id": "com.thatbran.sfa-developer-console",
+  "name": "Star Fox Adventures: Developer Console",
+  "version": "0.3.4",
+  "author": "ThatBran",
+  "compatibility": {
+    "abi": 2
+  }
+}

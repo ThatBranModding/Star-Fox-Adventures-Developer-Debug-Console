@@ -1,0 +1,103 @@
+name: Build
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-amd64
+            artifact: windows-amd64
+          - os: ubuntu-latest
+            platform: linux-amd64
+            artifact: linux-amd64
+          - os: macos-14
+            platform: macos-arm64
+            artifact: macos-arm64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build -A x64
+
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Configure (macOS Apple Silicon)
+        if: runner.os == 'macOS'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Stage platform artifact
+        shell: bash
+        run: |
+          mkdir -p "artifact/lib/${{ matrix.platform }}"
+          cp mod.json artifact/mod.json
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp build/Release/mod.dll "artifact/lib/${{ matrix.platform }}/mod.dll"
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            cp build/mod.dylib "artifact/lib/${{ matrix.platform }}/mod.dylib"
+          else
+            cp build/mod.so "artifact/lib/${{ matrix.platform }}/mod.so"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifact/
+          if-no-files-found: error
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: downloaded
+
+      - name: Assemble multi-platform package
+        run: |
+          mkdir -p package/lib/windows-amd64 package/lib/linux-amd64 package/lib/macos-arm64
+          cp mod.json package/mod.json
+          cp downloaded/windows-amd64/lib/windows-amd64/mod.dll package/lib/windows-amd64/mod.dll
+          cp downloaded/linux-amd64/lib/linux-amd64/mod.so package/lib/linux-amd64/mod.so
+          cp downloaded/macos-arm64/lib/macos-arm64/mod.dylib package/lib/macos-arm64/mod.dylib
+          cd package
+          zip -r ../sfa-developer-console-0.1.22.zip .
+          cd ..
+          cp sfa-developer-console-0.1.22.zip sfa-developer-console-0.1.22.fox
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sfa-developer-console-0.1.22-all-platforms
+          path: |
+            sfa-developer-console-0.1.22.zip
+            sfa-developer-console-0.1.22.fox
+          if-no-files-found: error
+
+      - name: Attach packages to tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            sfa-developer-console-0.1.22.zip
+            sfa-developer-console-0.1.22.fox

@@ -1,0 +1,15 @@
+build/
+build-*/
+.vs/
+.idea/
+*.user
+*.suo
+*.log
+*.obj
+*.o
+*.pdb
+*.dll
+*.so
+*.dylib
+*.zip
+*.fox
