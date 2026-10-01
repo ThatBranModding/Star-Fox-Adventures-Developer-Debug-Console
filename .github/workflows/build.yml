@@ -82,16 +82,16 @@ jobs:
           cp downloaded/linux-amd64/lib/linux-amd64/mod.so package/lib/linux-amd64/mod.so
           cp downloaded/macos-arm64/lib/macos-arm64/mod.dylib package/lib/macos-arm64/mod.dylib
           cd package
-          zip -r ../sfa-developer-console-0.1.22.zip .
+          zip -r ../sfa-developer-console-0.3.4.zip .
           cd ..
-          cp sfa-developer-console-0.1.22.zip sfa-developer-console-0.1.22.fox
+          cp sfa-developer-console-0.3.4.zip sfa-developer-console-0.3.4.fox
 
       - uses: actions/upload-artifact@v4
         with:
-          name: sfa-developer-console-0.1.22-all-platforms
+          name: sfa-developer-console-0.3.4-all-platforms
           path: |
-            sfa-developer-console-0.1.22.zip
-            sfa-developer-console-0.1.22.fox
+            sfa-developer-console-0.3.4.zip
+            sfa-developer-console-0.3.4.fox
           if-no-files-found: error
 
       - name: Attach packages to tagged release
@@ -99,5 +99,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            sfa-developer-console-0.1.22.zip
-            sfa-developer-console-0.1.22.fox
+            sfa-developer-console-0.3.4.zip
+            sfa-developer-console-0.3.4.fox
