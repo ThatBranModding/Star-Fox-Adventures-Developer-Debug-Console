@@ -124,32 +124,32 @@ jobs:
         run: |
           set -euo pipefail
           cd package
-          cmake -E tar cfv ../sfa-developer-console-0.3.4.zip --format=zip sfa-developer-console
+          cmake -E tar cfv ../sfa-developer-console-0.3.5.zip --format=zip sfa-developer-console
           cd ..
-          test -f sfa-developer-console-0.3.4.zip
+          test -f sfa-developer-console-0.3.5.zip
 
       - name: Create Foxhollow .fox bundle
         shell: bash
         run: |
           set -euo pipefail
           cd package/sfa-developer-console
-          cmake -E tar cfv ../../sfa-developer-console-0.3.4.fox --format=zip mod.json lib
+          cmake -E tar cfv ../../sfa-developer-console-0.3.5.fox --format=zip mod.json lib
           cd ../..
-          test -f sfa-developer-console-0.3.4.fox
+          test -f sfa-developer-console-0.3.5.fox
 
       - name: Upload all-platforms GitHub ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: sfa-developer-console-0.3.4-all-platforms
-          path: sfa-developer-console-0.3.4.zip
+          name: sfa-developer-console-0.3.5-all-platforms
+          path: sfa-developer-console-0.3.5.zip
           if-no-files-found: error
           compression-level: 0
 
       - name: Upload Foxhollow .fox bundle
         uses: actions/upload-artifact@v4
         with:
-          name: sfa-developer-console-0.3.4-fox-bundle
-          path: sfa-developer-console-0.3.4.fox
+          name: sfa-developer-console-0.3.5-fox-bundle
+          path: sfa-developer-console-0.3.5.fox
           if-no-files-found: error
           compression-level: 0
 
@@ -158,5 +158,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            sfa-developer-console-0.3.4.zip
-            sfa-developer-console-0.3.4.fox
+            sfa-developer-console-0.3.5.zip
+            sfa-developer-console-0.3.5.fox

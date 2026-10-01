@@ -275,16 +275,42 @@ static void process_loaded_teleports(void){
 
 if(kp_goto.active&&nav_is_safe()){if(kp_goto.wait++<4)return;if(assetInFlight_&&*assetInFlight_)return;if(mainSetBits_&&setMapAct_&&SaveGame_gplaySetObjGroupStatus_&&warpToMap_){mainSetBits_(GAMEBIT_WM_OBJGROUPS,0);setMapAct_(0x0B,kp_goto.act);SaveGame_gplaySetObjGroupStatus_(0x0B,kp_goto.groupA,1);SaveGame_gplaySetObjGroupStatus_(0x0B,kp_goto.groupB,1);if(SaveGame_mapUpdateObjGroups_)SaveGame_mapUpdateObjGroups_(0x0B);warpToMap_(kp_goto.warp,0);}kp_goto.active=0;}
  if(retail_goto.active&&nav_is_safe()){if(retail_goto.wait++<4)return;if(assetInFlight_&&*assetInFlight_)return;if(retail_goto.act>0&&setMapAct_)setMapAct_(retail_goto.map,retail_goto.act);if(mainSetBits_&&SaveGame_mapUpdateObjGroups_){if(retail_goto.map==0x0B&&retail_goto.act==5){mainSetBits_(GAMEBIT_WM_OBJGROUPS,0x00000C33);SaveGame_mapUpdateObjGroups_(0x0B);}else if(retail_goto.map==0x0B&&retail_goto.act==6){mainSetBits_(GAMEBIT_WM_OBJGROUPS,(int)0xE0000C33u);SaveGame_mapUpdateObjGroups_(0x0B);}else if(retail_goto.map==0x1D){mainSetBits_(GAMEBIT_CC_OBJGROUPS,(int)0x80000013u);SaveGame_mapUpdateObjGroups_(0x1D);}}
-  if(retail_goto.warp==0x6C||retail_goto.warp==0x77||retail_goto.warp==0x78||retail_goto.warp==0x63||retail_goto.warp==0x79){prepare_arwing_destination(retail_goto.warp);if(clearLoadedFileFlags_blocks1_)clearLoadedFileFlags_blocks1_();}else if(retail_goto.map==0x32||retail_goto.map==0x04)prepare_forcepoint_groups(retail_goto.map,retail_goto.act);else if(SaveGame_mapUpdateObjGroups_)SaveGame_mapUpdateObjGroups_(retail_goto.map);
+  if(retail_goto.warp==0x6C||retail_goto.warp==0x77||retail_goto.warp==0x78||retail_goto.warp==0x63||retail_goto.warp==0x79){prepare_arwing_destination(retail_goto.warp);if(clearLoadedFileFlags_blocks1_)clearLoadedFileFlags_blocks1_();}else if(retail_goto.map==0x13){prepare_arwing_destination(0x77);}else if(retail_goto.map==0x0D){prepare_arwing_destination(0x78);}else if(retail_goto.map==0x32||retail_goto.map==0x04)prepare_forcepoint_groups(retail_goto.map,retail_goto.act);else if(SaveGame_mapUpdateObjGroups_)SaveGame_mapUpdateObjGroups_(retail_goto.map);
   if(retail_goto.map==0x0B&&(retail_goto.act==5||retail_goto.act==6)&&retail_goto.warp==0x4E&&rcpPendingWarpDest_){SfaPendingWarpDestination roof;warpToMap_(0x4E,0);roof=*rcpPendingWarpDest_;warpToMap_(0x22,0);*rcpPendingWarpDest_=roof;if(pendingWarpIndex_)*pendingWarpIndex_=-3;if(arrivedWarpIndex_)*arrivedWarpIndex_=-3;if(warpArrivalTimer_)*warpArrivalTimer_=0;}else warpToMap_(retail_goto.warp,0);
   if(retail_goto.map==0x1D&&retail_goto.warp==0x35&&rcpPendingWarpDest_){rcpPendingWarpDest_->x=1419.07f;rcpPendingWarpDest_->y=-1206.83f;rcpPendingWarpDest_->z=-4205.01f;rcpPendingWarpDest_->layer=0;rcpPendingWarpDest_->angle=0;}
   retail_goto.active=0;}
  if(andross_after_kp6){if(retail_goto.active||kp_goto.active||shw_goto.active){andross_wait=0;return;}if(andross_wait++>=180){if(warpToMap_)warpToMap_(0x32,0);andross_after_kp6=0;andross_wait=0;}}}
 
-static int teleport_boss(DevConsole*c,const char*boss){int warp=-1;char out[DC_LINE_LEN];if(!strcmp(boss,"galdon"))warp=0x1D;else if(!strcmp(boss,"race"))warp=0x49;else if(!strcmp(boss,"redeye")||!strcmp(boss,"redeye_king"))warp=0x6D;else if(!strcmp(boss,"drakor"))warp=0x54;else if(!strcmp(boss,"andross")){queue_loaded_named(c,"kp",6);andross_after_kp6=1;andross_wait=0;console_push(c,"Andross queued after loaded KP6 settles.");return 1;}else{console_push(c,"Bosses: galdon, race, redeye, drakor, andross");return 1;}if(!warpToMap_){console_push(c,"Boss teleport unavailable.");return 1;}warpToMap_(warp,0);snprintf(out,sizeof(out),"Boss %s via retail WARPTAB 0x%X.",boss,warp);console_push(c,out);return 1;}
+static int queue_loaded_boss(DevConsole*c,const char*boss,int map,int act,int warp){
+ char out[DC_LINE_LEN];int dir;
+ if(!loadMapAndParent_||!mapGetDirIdx_||!lockLevel_||!warpToMap_||!setMapAct_){console_push(c,"Loaded boss teleport unavailable: native symbols missing.");return 1;}
+ dir=mapGetDirIdx_(map);if(dir<0){console_push(c,"Boss resource directory unavailable.");return 1;}
+ setMapAct_(map,act);
+ /* Boss WARPTAB entries assume their parent area's objects are already resident.
+    Preload the same destination state used by the stable named area teleports
+    before firing the boss-specific retail warp. */
+ if(map==0x13)prepare_arwing_destination(0x77);
+ else if(map==0x0D)prepare_arwing_destination(0x78);
+ else if(map==0x0C)prepare_arwing_destination(0x63);
+ else if(map==0x02)prepare_arwing_destination(0x79);
+ else if(SaveGame_mapUpdateObjGroups_)SaveGame_mapUpdateObjGroups_(map);
+ loadMapAndParent_(map);lockLevel_(dir,0);
+ retail_goto.active=1;retail_goto.wait=0;retail_goto.map=map;retail_goto.act=act;retail_goto.warp=warp;retail_goto.dir=dir;
+ snprintf(out,sizeof(out),"Loading boss %s...",boss);console_push(c,out);return 1;
+}
+
+static int teleport_boss(DevConsole*c,const char*boss){int warp=-1;char out[DC_LINE_LEN];
+ if(!strcmp(boss,"galdon"))return queue_loaded_boss(c,boss,0x13,2,0x1D);
+ else if(!strcmp(boss,"redeye")||!strcmp(boss,"redeye_king"))return queue_loaded_boss(c,boss,0x0D,1,0x6D);
+ else if(!strcmp(boss,"race"))return queue_loaded_boss(c,boss,0x0C,1,0x49);
+ else if(!strcmp(boss,"drakor"))return queue_loaded_boss(c,boss,0x02,2,0x54);
+ else if(!strcmp(boss,"andross")){queue_loaded_named(c,"kp",6);andross_after_kp6=1;andross_wait=0;console_push(c,"Andross queued after loaded KP6 settles.");return 1;}
+ else{console_push(c,"Bosses: galdon, race, redeye, drakor, andross");return 1;}
+ if(!warpToMap_){console_push(c,"Boss teleport unavailable.");return 1;}warpToMap_(warp,0);snprintf(out,sizeof(out),"Boss %s via retail WARPTAB 0x%X.",boss,warp);console_push(c,out);return 1;
+}
 
 static int native_command(DevConsole*c,const char*cmd){char mout[DC_LINE_LEN],state[16];int mg,ms;
- if(!strcmp(cmd,"version")){console_push(c,"SFA Developer Console 0.1.22");return 1;}
+ if(!strcmp(cmd,"version")){console_push(c,"SFA Developer Console 0.3.5");return 1;}
  if(!strcmp(cmd,"position")){
   SaveGameCharacterPositionCompat* p=SaveGame_getCurCharPos_?(SaveGameCharacterPositionCompat*)SaveGame_getCurCharPos_():NULL;
   if(!p){console_push(c,"Player position unavailable.");return 1;}
@@ -305,7 +331,7 @@ static void draw_console(void) {
 
     if (!C.open || !render_ok) return;
 
-    /* 0.1.22: keep the proven compact width/top position and add exactly one
+    /* 0.3.5: keep the proven compact width/top position and add exactly one
        output row downward so the complete help listing remains visible. */
     drawHudBox_(188, 10, 244, 92, 155, 1);
 
@@ -363,7 +389,7 @@ static void pad_update_hook(void) {
 
 static void subtitle_update_and_draw_hook(int mode) {
     if (origSubtitleUpdateAndDraw) origSubtitleUpdateAndDraw(mode);
-    if (!render_seen) { render_seen=1; logi("0.1.22 subtitle-stage render callback is live."); }
+    if (!render_seen) { render_seen=1; logi("0.3.5 subtitle-stage render callback is live."); }
     draw_console();
 }
 
@@ -424,15 +450,15 @@ FH_MOD_EXPORT int fh_mod_initialize(FhMod* mod,const FhModHost* host) {
 
     if(target&&drawHudBox_&&gameTextShowStr_&&gameTextSetColor_&&gameTextRun_&&gTextBoxes_&&host->hookInstall&&
        host->hookInstall(mod,target,(void*)subtitle_update_and_draw_hook,(void**)&origSubtitleUpdateAndDraw)==FH_MOD_OK){
-        render_ok=1; logi("0.1.22 compact full-width-text scrollable HUD/GameText console installed.");
-    } else logw("0.1.22 overlay unavailable: missing native draw/text symbol or subtitle-stage hook.");
+        render_ok=1; logi("0.3.5 compact full-width-text scrollable HUD/GameText console installed.");
+    } else logw("0.3.5 overlay unavailable: missing native draw/text symbol or subtitle-stage hook.");
 
     if(pad_target&&setJoypadDisabled_&&host->hookInstall&&
        host->hookInstall(mod,pad_target,(void*)pad_update_hook,(void**)&origPadUpdate)==FH_MOD_OK){
-        input_gate_ok=1; logi("0.1.22 game input gate installed; gameplay controls are suppressed while console is open.");
-    } else logw("0.1.22 input gate unavailable: console typing may also reach gameplay.");
+        input_gate_ok=1; logi("0.3.5 game input gate installed; gameplay controls are suppressed while console is open.");
+    } else logw("0.3.5 input gate unavailable: console typing may also reach gameplay.");
 
-    snprintf(msg,sizeof(msg),"SFA Developer Console 0.1.22 loaded. input=%s. F1 toggle; PgUp/PgDn scroll.",platform_input_backend_name());
+    snprintf(msg,sizeof(msg),"SFA Developer Console 0.3.5 loaded. input=%s. F1 toggle; PgUp/PgDn scroll.",platform_input_backend_name());
     logi(msg); return FH_MOD_OK;
 }
 
