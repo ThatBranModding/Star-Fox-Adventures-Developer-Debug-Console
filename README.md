@@ -27,7 +27,8 @@ Download either directly through the Foxhollow Launcher, or get the mod from Git
 ## Features
 
 - In-game console opened with **F1** and closed using either the same button or by pressing **ESC**
-- Scrollable command history by using **PAGE UP**, **PAGE DOWN**, **HOME** and **END**.
+- Recall the last 128 commands from the current session with **UP** and **DOWN** arrows. Returning past the newest command restores unfinished input.
+- Scrollable console output by using **PAGE UP**, **PAGE DOWN**, **HOME** and **END**.
 - Named area teleports, supports act selection if supplied, else defaults to act 1 for all areas except krazoa palace which teleports you to its act 2.
 - Boss and location teleports
 - Infinite health, staff mana, and Tricky energy toggles
